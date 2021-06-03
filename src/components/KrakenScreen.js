@@ -1,7 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useReducer, useRef } from 'react';
+import { updateReducer } from '../reducers/updateReducer';
 import { ItemScreen } from './ItemScreen';
 
 const WebSocket = require('isomorphic-ws');
+
 
 export const KrakenScreen = () => {
 
@@ -9,11 +11,15 @@ export const KrakenScreen = () => {
 
     if ( !wsRef.current ) {
       wsRef.current = new WebSocket('wss://ws.kraken.com');
-    }
+    }    
+    
+    const [ updates, dispatch ] = useReducer(updateReducer, {});
 
-    const [ state, setState ] = useState([]);
+    const { snapshot = {}, update = {} } = updates;
 
-    const { as = [], bs = []} = state;
+    const { as = [], bs = [] } = snapshot;
+
+    const { a = [], b = [] } = update;
 
 
     useEffect(() => {
@@ -26,8 +32,18 @@ export const KrakenScreen = () => {
 
             const [ , only = {} ] = Array.from(message);
 
-            if ( Object.keys(only).includes('as')) {
-                setState(only);
+            if ( Object.keys(only).includes('as') ) {
+                dispatch({
+                    type: 'add',
+                    payload: only
+                });
+            } else if ( 
+                Object.keys(only).includes('a') ||  
+                Object.keys(only).includes('b') ) {
+                dispatch({
+                    type: 'update',
+                    payload: only
+                })
             }
 
           }
@@ -41,10 +57,12 @@ export const KrakenScreen = () => {
           }
     }, [])
 
+    // close websocker
     const wsClose = () => {
         wsRef.current.close()
     }
 
+    // handle subscription
     const wsSubscription = () => {
         wsRef.current.send(JSON.stringify(
           {
@@ -58,9 +76,33 @@ export const KrakenScreen = () => {
             }
           }
         ))
-        console.log('Send subscribe')
+        console.log('Send subscribe');
       }
 
+    // inside component that returns the result of the spread
+    // const GetSpread = () => {
+
+    //     const arrAs = as.map(item => {
+    //         return item[0];
+    //     })
+
+    //     const arrBs = bs.map(item => {
+    //         return item[0];
+    //     })
+
+    //     const relDiff = (a, b) => {
+    //         return 100 * Math.abs( ( a - b ) / ( ( a + b ) / 2 ) );
+    //     }
+
+    //     const result = relDiff(Math.min(...arrAs),Math.max(...arrBs)).toFixed(5);
+
+    //     return (
+    //         <div>
+    //             Spread: { result } %
+    //         </div>
+    //     )
+
+    // }
 
     return (
         <div>
@@ -71,12 +113,18 @@ export const KrakenScreen = () => {
             <div style={ { display: 'flex', justifyContent: 'space-around' } }>
                 <div>
                     Best Asks:
-                    <ItemScreen best={as} key="as"/>
+                    <ItemScreen best={as} upt={a} key="as"/>
                 </div>
+{/* 
+                {
+
+                    as.length !== 0 && <GetSpread />
+                    
+                } */}
 
                 <div>
                     Best Bids:
-                    <ItemScreen best={bs} key="bs"/>
+                    <ItemScreen best={bs} upt={b} key="bs"/>
                 </div>
             </div>
 

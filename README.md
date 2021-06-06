@@ -4,22 +4,19 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 
 ## Steps to run the project
 
-Clone the repository
-Go to the repository directory
+Clone the repository.\
+Go to the repository directory.\
 
 ## Install node modules and dependencies
 
 ```
 npm install
-
 ```
 
 ## Start the development server
 
 ```
-
 npm start
-
 ```
 
 Runs the app in the development mode.\
@@ -30,7 +27,7 @@ You will also see any lint errors in the console.
 
 ## Conection with WebSockets
 
-In order to subscribe, just press the Subscribe button
+In order to subscribe, just press the Subscribe button.\
 The conection will remains until you close it manually with the close button or refresh the browser
 
 

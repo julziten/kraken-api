@@ -1,5 +1,4 @@
-import React, { useEffect, useReducer, useRef } from 'react';
-import { updateReducer } from '../reducers/updateReducer';
+import React, { useEffect, useRef, useState } from 'react';
 import { ItemScreen } from './ItemScreen';
 
 const WebSocket = require('isomorphic-ws');
@@ -11,16 +10,73 @@ export const KrakenScreen = () => {
 
     if ( !wsRef.current ) {
       wsRef.current = new WebSocket('wss://ws.kraken.com');
-    }    
-    
-    const [ updates, dispatch ] = useReducer(updateReducer, {});
+    }
 
-    const { snapshot = {}, update = {} } = updates;
+    const [data, setData] = useState([]);
 
-    const { as = [], bs = [] } = snapshot;
+    const [bids, setBids] = useState([]);
 
-    const { a = [], b = [] } = update;
+    const [asks, setAsks] = useState([]);
 
+
+    useEffect(() => {
+        const incomingInfo = data[1];
+        // if we have data
+        if ( incomingInfo ) {
+            // store first 10 asks and bids values
+            if (Object.keys(incomingInfo).includes('as')) {
+                const { as, bs } = incomingInfo;
+                setAsks(as);
+                setBids(bs);
+            }
+
+            // create a copy for the received values
+            const copyAsks = [...asks];
+            const copyBids = [...bids];
+
+            // map the updates
+            const addUpdates = (name, type) => {
+
+                name.map( item => {
+                    const [price, volume] = item;
+
+                    // check if volume is not 0
+                    if (volume !== '0.00000000') {
+                        const arr = (type === asks) ? copyAsks : copyBids;
+
+                        // map through array
+                        arr.map((innerArray, index) => {
+                            const innerPrice = innerArray[0];
+                            if (price === innerPrice) {
+                                // if price is the same, update value
+                                arr.splice(index, 1, item);
+                            } else if (price !== innerPrice) {
+                                // if price is different, add it to array
+                                arr.push(item);
+                            }
+                            return null;
+                        })
+
+                        // removing duplicated
+                        const remDup = [...new Set(arr)];
+
+                        // set final results
+                        (type === asks) ? setAsks(remDup) : setBids(remDup);
+                    }
+                    return null;
+                })
+            }
+
+            if ( Object.keys(incomingInfo).includes('a') ) {
+                const { a } = incomingInfo;
+                addUpdates(a, asks);
+            }
+            if (Object.keys(incomingInfo).includes('b') ) {
+                const { b } = incomingInfo;
+                addUpdates(b, bids);
+            }
+        }
+    }, [data, asks, bids]);
 
     useEffect(() => {
         wsRef.current.onopen = () => {
@@ -30,21 +86,8 @@ export const KrakenScreen = () => {
           wsRef.current.onmessage = (msg) => {
             const message = JSON.parse(msg.data);
 
-            const [ , only = {} ] = Array.from(message);
-
-            if ( Object.keys(only).includes('as') ) {
-                dispatch({
-                    type: 'add',
-                    payload: only
-                });
-            } else if ( 
-                Object.keys(only).includes('a') ||  
-                Object.keys(only).includes('b') ) {
-                dispatch({
-                    type: 'update',
-                    payload: only
-                })
-            }
+            // store data received
+            setData(message);
 
           }
 
@@ -57,7 +100,7 @@ export const KrakenScreen = () => {
           }
     }, [])
 
-    // close websocker
+    // close websocket
     const wsClose = () => {
         wsRef.current.close()
     }
@@ -72,7 +115,8 @@ export const KrakenScreen = () => {
             ],
             "subscription": {
               "name": "book",
-              "depth": 10
+              "depth": 10,
+              "ratecounter": true
             }
           }
         ))
@@ -80,32 +124,26 @@ export const KrakenScreen = () => {
       }
 
     // inside component that returns the result of the spread
-    // const GetSpread = () => {
+    const GetSpread = () => {
 
-    //     const arrAs = as.map(item => {
-    //         return item[0];
-    //     })
+        const priceAsk = asks.map(item => item[0]);
 
-    //     const arrBs = bs.map(item => {
-    //         return item[0];
-    //     })
+        const priceBid = bids.map(item => item[0]);
 
-    //     const relDiff = (a, b) => {
-    //         return 100 * Math.abs( ( a - b ) / ( ( a + b ) / 2 ) );
-    //     }
+        const relDiff = (a, b) => 100 * Math.abs( ( a - b ) / ( ( a + b ) / 2 ) );
 
-    //     const result = relDiff(Math.min(...arrAs),Math.max(...arrBs)).toFixed(5);
+        const result = relDiff(Math.min(...priceAsk),Math.max(...priceBid)).toFixed(5);
 
-    //     return (
-    //         <div>
-    //             Spread: { result } %
-    //         </div>
-    //     )
+        return (
+            <div>
+                Spread: { result } %
+            </div>
+        )
 
-    // }
+    }
 
     return (
-        <div>
+        <>
             <h1>Kraken Screen</h1>
             <button onClick={ wsSubscription }>Subscribe</button>
             <button onClick={ wsClose }>Close WebSockets</button>
@@ -113,21 +151,21 @@ export const KrakenScreen = () => {
             <div style={ { display: 'flex', justifyContent: 'space-around' } }>
                 <div>
                     Best Asks:
-                    <ItemScreen best={as} upt={a} key="as"/>
+                    <ItemScreen best={asks} key="as"/>
                 </div>
-{/* 
+
                 {
 
-                    as.length !== 0 && <GetSpread />
+                    asks.length > 0 && <GetSpread />
                     
-                } */}
+                }
 
                 <div>
                     Best Bids:
-                    <ItemScreen best={bs} upt={b} key="bs"/>
+                    <ItemScreen best={bids} key="bs"/>
                 </div>
             </div>
 
-        </div>
+        </>
     )
 }

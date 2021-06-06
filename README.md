@@ -28,7 +28,7 @@ You will also see any lint errors in the console.
 ## Conection with WebSockets
 
 In order to subscribe, just press the Subscribe button.\
-The conection will remains until you close it manually with the close button or refresh the browser
+The conection will remain until you close it manually with the close button or refresh the browser
 
 
 
